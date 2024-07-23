@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import io from "socket.io-client";
-import "./App.css"; // Import custom CSS for WhatsApp-like styling
+import "./App.css";
 
 const socket = io("http://localhost:3000");
 
@@ -10,12 +10,17 @@ const App = () => {
   const [messages, setMessages] = useState([]);
   const [userCount, setUserCount] = useState(0);
   const [users, setUsers] = useState([]);
-  const [currentUser, setCurrentUser] = useState(""); 
+  const [currentUser, setCurrentUser] = useState("");
+  const [group, setGroup] = useState("");
+  const [groups, setGroups] = useState([]);
+  const [currentGroup, setCurrentGroup] = useState("");
+
+  console.log("users ", users);
 
   useEffect(() => {
     socket.on("connect", () => {
       console.log("Connected to the server");
-      setCurrentUser(socket.id); 
+      setCurrentUser(socket.id);
     });
 
     socket.on("users", (users) => {
@@ -24,10 +29,8 @@ const App = () => {
       console.log(`Total users connected: ${users.length}`);
     });
 
-    // Listen for new messages
     socket.on("message", (data) => {
       setMessages((prevMessages) => {
-        // Check if the message is already in the state
         const messageExists = prevMessages.some(
           (msg) =>
             msg.message === data.message &&
@@ -41,41 +44,118 @@ const App = () => {
       });
     });
 
-    // Cleanup on component unmount
+    socket.on("groupUpdate", (data) => {
+      setGroups((prevGroups) => {
+        const groupExists = prevGroups.some((grp) => grp.group === data.group);
+        if (!groupExists) {
+          return [...prevGroups, { group: data.group, members: data.members }];
+        }
+        return prevGroups.map((grp) =>
+          grp.group === data.group ? { ...grp, members: data.members } : grp
+        );
+      });
+    });
+
     return () => {
       socket.off("connect");
       socket.off("users");
       socket.off("message");
+      socket.off("groupUpdate");
     };
   }, []);
 
   const sendMessage = () => {
-    if (message.trim() !== "" && recipient.trim() !== "") {
-      // Add the sent message to local state immediately
-      const newMessage = { from: currentUser, to: recipient, message };
+    if (
+      message.trim() !== "" &&
+      (recipient.trim() !== "" || currentGroup.trim() !== "")
+    ) {
+      const newMessage = currentGroup
+        ? { from: currentUser, to: currentGroup, message, type: "group" }
+        : { from: currentUser, to: recipient, message, type: "direct" };
+
       setMessages((prevMessages) => [...prevMessages, newMessage]);
 
-      // Emit the message to the server
       socket.emit("message", newMessage);
 
-      // Clear the message input field
       setMessage("");
     }
   };
 
+  const joinGroup = () => {
+    if (group.trim() !== "") {
+      socket.emit("joinGroup", { group });
+      setCurrentGroup(group);
+      setGroup("");
+    }
+  };
+
+  const leaveGroup = () => {
+    if (currentGroup.trim() !== "") {
+      const confirmation = window.confirm(
+        "Are you sure you want to leave the group?"
+      );
+      if (confirmation) {
+        socket.emit("leaveGroup", { group: currentGroup });
+        setCurrentGroup("");
+      }
+    }
+  };
+
   return (
-    <div className="app">
+    <div className="app container">
       <div className="users">
-        <p>Total users connected: {userCount}</p>
-        <p>Online users:</p>
+        <p className=" py-2 px-3  text-white bg-green-700 rounded-xl m-4">
+          Total users connected: {userCount}
+        </p>
+        <p className="py-2 px-3  text-white bg-green-700 rounded-xl m-4">
+          Online users:
+        </p>
         <ul>
           {users.map((user) => (
-            <li key={user} className="user">
-              <div className="avatar"></div>
+            <li
+              key={user}
+              className={user === currentUser ? "current-user" : "user"}
+            >
               <span>{user}</span>
             </li>
           ))}
         </ul>
+      </div>
+      <div className="groups ">
+        <ul>
+          {groups.map((grp, index) => (
+            <li key={index} className="group">
+              <span>{grp.group}</span>
+              <ul>
+                {grp.members.map((member) => (
+                  <li key={member} className="member">
+                    <div className="avatar"></div>
+                    <span>{member}</span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+        <input
+          type="text"
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+          placeholder="Group Name"
+          className="outline-none text-3xl px-3 py-2"
+        />
+        <button
+          onClick={joinGroup}
+          className="py-2 px-3  text-white bg-green-700 rounded-xl m-4"
+        >
+          Join Group
+        </button>
+        <button
+          onClick={leaveGroup}
+          className="py-2 px-3  text-white bg-red-600 rounded-xl hover:bg-gray-700 m-4"
+        >
+          Leave Group
+        </button>
       </div>
       <div className="chat">
         <div className="message-list">
@@ -95,13 +175,13 @@ const App = () => {
             type="text"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            placeholder="Recipient User ID"
+            placeholder="Recipient User ID "
           />
           <input
             type="text"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder="Type a message......"
           />
           <button onClick={sendMessage}>Send</button>
         </div>

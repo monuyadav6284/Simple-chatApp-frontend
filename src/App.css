@@ -1,9 +1,9 @@
-/* App.css */
 .app {
   display: flex;
 }
 
-.users {
+.users,
+.groups {
   width: 20%;
   padding: 10px;
   border-right: 1px solid #ccc;
@@ -15,6 +15,11 @@
   flex-direction: column;
   height: 100vh;
   padding: 10px;
+}
+
+.current-user {
+  background-color: #57e216;
+  border-color: #c3e6cb;
 }
 
 .message-list {
@@ -40,13 +45,7 @@
   justify-content: flex-start;
 }
 
-.message .avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background-color: #ddd;
-  margin-right: 10px;
-}
+
 
 .message .bubble {
   max-width: 80%;
